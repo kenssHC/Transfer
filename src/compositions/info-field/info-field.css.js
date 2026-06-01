@@ -25,7 +25,7 @@ export const infoFieldStyles = css`
     color: #111827;
 }
 
-.info-field.primary {
+.ingo-field.primary {
     --border-color: #4f46e5;
 }
 

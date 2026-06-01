@@ -1,5 +1,5 @@
 import { html, LitElement, nothing } from "lit";
-import styles from "./type-button.css.js";
+import styles from "./type-button.css";
 import "../../components/type-text/type-text.js";
 import "../../components/type-icon/type-icon.js";
 import {

@@ -6,7 +6,7 @@ import {
 import ICONS from "../../utils/icons";
 import { html, LitElement, nothing } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
-import styles from "./type-icon.css.js";
+import styles from "./type-icon.css";
 
 export class TypeIcon extends LitElement {
   static properties = {
@@ -87,7 +87,7 @@ export class TypeIcon extends LitElement {
       <div
         focusable="false"
         class="container-icon"
-        role=${this.ariaRole}
+        .role=${this.ariaRole}
         aria-label=${this.accessibleLabel}
         aria-hidden=${this.ariaHidden}
       >
