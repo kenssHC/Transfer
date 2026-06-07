@@ -6,8 +6,8 @@ import "./compositions/transfer-form/transfer-form.js";
 import { TRANSFER_FORM_FIELDS } from "../../utils/transfer-form/configTransferForm.js";
 import { resolveDestinationAccount } from "../../services/bankingTransferService.js";
 import "../../components/loading-overlay/loading-overlay.js";
-
-//import styles from "./new-transfer-page.css.js";
+import "../../compositions/type-button/type-button.js";
+import styles from "./new-transfer-page.css.js";
 export class NewTransferPage extends LitElement {
   static properties = {
     accountCustomer: {
@@ -21,11 +21,7 @@ export class NewTransferPage extends LitElement {
 
   constructor() {
     super();
-    this.accountCustomer = {
-      availableBalance: 100,
-      accountNumber: 45151515151515,
-      currency: "USD",
-    };
+    this.accountCustomer = {};
     this._loading = false;
   }
 
@@ -64,6 +60,29 @@ export class NewTransferPage extends LitElement {
     console.log("responseDestinationAccount", responseDestinationAccount);
   }
 
+  _getCurrency(currency) {
+    if (currency === "USD") {
+      return "dollar-sign";
+    }
+    if (currency === "PEN") {
+      return "dollar-sign";
+    }
+  }
+
+  _returnPage() {
+    this.dispatchEvent(
+      new CustomEvent("return-page", {
+        detail: 0,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  static get styles() {
+    return styles;
+  }
+
   render() {
     return html`
       ${this._loading ? html`<loading-overlay></loading-overlay>` : nothing}
@@ -75,17 +94,30 @@ export class NewTransferPage extends LitElement {
         ?has-footer=${true}
         class="modal-accounts"
       >
-        <type-header
-          slot="header"
-          .title=${"Nueva Transferencia"}
-          .subtitle=${"Complete los datos de la transferencia"}
-        ></type-header>
+        <div slot="header">
+          <type-button
+            class="container-button"
+            icon-name="arrow-left"
+            icon-position="left"
+            text="Volver"
+            variant="secondary"
+            .type=${"button"}
+            @click=${this._returnPage}
+          ></type-button>
+          <type-header
+            .title=${"Nueva Transferencia"}
+            .subtitle=${"Complete los datos de la transferencia"}
+          ></type-header>
+        </div>
 
-        <div slot="body">
-          <from-account-card></from-account-card>
+        <div slot="body" class="container-body">
+          <from-account-card
+            .account=${this.accountCustomer}
+          ></from-account-card>
           <transfer-form
             .configFormFields=${TRANSFER_FORM_FIELDS}
             .availableBalance=${this.accountCustomer.availableBalance}
+            .currency=${this._getCurrency(this.accountCustomer.currency)}
             @form-submit="${this._sendForm}"
           ></transfer-form>
         </div>
