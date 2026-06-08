@@ -51,7 +51,32 @@ export class NewTransferPage extends LitElement {
   }
 
   _goNextStep(formField) {
-    console.log("formField", formField);
+    // Normaliza los datos al contrato unificado de transferData para que
+    // confirm-transfer-page (y a futuro successful-transfer-page) lo consuman
+    // sin depender de la estructura interna del formulario.
+    // Ver src/mocks/transfer-data.js para la estructura esperada.
+    const transferData = {
+      amount: formField.amount,
+      currency: formField.currency,
+      sourceAccount: {
+        accountName: formField.accountName,
+        accountNumber: formField.accountNumber,
+        accountType: formField.accountType,
+        availableBalance: formField.availableBalance,
+      },
+      beneficiary: {
+        fullName: formField.destinationAccountName,
+        accountNumber: formField.destinationAccount,
+      },
+    };
+
+    // El evento sube hasta MyElement, que lo captura con @confirm-requested
+    // para mostrar confirm-transfer-page (step 2).
+    this.dispatchEvent(new CustomEvent("confirm-requested", {
+      detail: transferData,
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   async _getDestinationAccountDetails(accountCustomer) {

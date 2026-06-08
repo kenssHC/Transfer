@@ -13,6 +13,17 @@
  *     No animamos la salida porque al cerrar usamos 'nothing' y el componente
  *     se desmonta inmediatamente. Si en el futuro queremos animar la salida,
  *     habría que diferir el desmontado.
+ * 
+ * Cambios respecto a la versión anterior:
+ *   - Se eliminaron los valores hardcodeados del bloque :host (colores, padding,
+ *     etc.). Ahora se consumen únicamente con var(--type-modal-*). Los valores
+ *     por defecto viven en index.css (:root) para que sea la única fuente de
+ *     verdad de tokens globales.
+ *   - Se eliminó :host(:not([open])) { display:none }. El JS ya maneja el
+ *     desmontado (render devuelve nothing). Con display:block el host no
+ *     reserva espacio cuando el shadow DOM está vacío.
+ *   - Se añadieron animaciones de SALIDA (slide-down y fade-out) activadas
+ *     por las clases --closing que el JS aplica mientras _closing=true.
  * =============================================================================
  */
 
@@ -20,21 +31,18 @@ import { css } from "lit";
 
 export default css`
     /* -------------------------------------------------------------------------
-     * 1. Variables CSS por defecto (las del variant="page" / default)
+     * 1. Host baseline
      * -------------------------------------------------------------------------
-     * :host es el propio elemento type-modal. Definir variables aquí las hace
-     * accesibles a todo el shadow DOM interno y sobrescribibles desde fuera.
+     * display:block es necesario para que el host no sea inline (default de
+     * custom elements) y el backdrop con position:fixed funcione correctamente.
+     *
+     * Los valores de las CSS custom properties vienen heredados de :root en
+     * index.css. No se definen aquí para evitar duplicidad y conflictos.
+     * El bloque :host([variant="dialog"]) sí los sobreescribe porque son
+     * variaciones propias de este componente, no tokens globales.
      * ------------------------------------------------------------------------- */
     :host {
-        --type-modal-bg-color: #ffffff;
-        --type-modal-backdrop-color: rgba(0, 0, 0, 0.5);
-        --type-modal-width: 100%;
-        --type-modal-max-width: 100%;
-        --type-modal-min-width: auto;
-        --type-modal-border-radius: 0;
-        --type-modal-padding: 1.5rem;
-        --type-modal-gap: 1rem;
-        --type-modal-z-index: 1000;
+        display: block;
     }
 
     /* Overrides cuando variant="dialog": modal centrado, más pequeño y con
@@ -47,18 +55,7 @@ export default css`
     }
 
     /* -------------------------------------------------------------------------
-     * 2. Estado cerrado: el host no ocupa espacio
-     * -------------------------------------------------------------------------
-     * Aunque cuando open=false el render() devuelve 'nothing' y no hay DOM
-     * interno, el propio elemento type-modal sigue existiendo como nodo del
-     * DOM. Con display:none evitamos que reserve espacio en el layout.
-     * ------------------------------------------------------------------------- */
-    :host(:not([open])) {
-        display: none;
-    }
-
-    /* -------------------------------------------------------------------------
-     * 3. Backdrop (overlay oscuro a pantalla completa)
+     * 2. Backdrop (overlay oscuro a pantalla completa)
      * -------------------------------------------------------------------------
      * position:fixed + inset:0 lo pega a las 4 esquinas del viewport, sin
      * importar dónde esté el componente en el árbol DOM.
@@ -86,11 +83,10 @@ export default css`
     /* -------------------------------------------------------------------------
      * 4. Contenido del modal (la "caja blanca" central)
      * -------------------------------------------------------------------------
-     * flex-direction:column apila header -> body -> footer.
-     * box-sizing:border-box hace que padding NO sume al width/height (clave
-     * cuando width=100%, para que no desborde el viewport).
-     * outline:none quita el outline azul del navegador en focus (manejamos
-     * accesibilidad con focus trap propio).
+     * flex-direction:column apila header → body → footer.
+     * box-sizing:border-box evita que el padding desborde el viewport.
+     * outline:none quita el foco visible del navegador (manejamos accesibilidad
+     * con _focusFirst en el JS).
      * ------------------------------------------------------------------------- */
     .type-modal-content {
         background-color: var(--type-modal-bg-color);
@@ -107,7 +103,7 @@ export default css`
     }
 
     /* -------------------------------------------------------------------------
-     * 5. Sobreescrituras específicas por variant
+     * 4. Overrides/Sobreescrituras específicos por variant
      * -------------------------------------------------------------------------
      * Usamos 100dvh en vez de 100vh para que en mobile (donde la barra de URL
      * aparece/desaparece) el modal SIEMPRE ocupe el viewport real visible.
@@ -135,7 +131,7 @@ export default css`
     }
 
     /* -------------------------------------------------------------------------
-     * 6. Scroll interno del body
+     * 5. Scroll interno del body
      * -------------------------------------------------------------------------
      * Cuando scrollable=true, el body crece y se vuelve scrolleable, mientras
      * header y footer se quedan fijos arriba y abajo (no scrollean).
@@ -165,7 +161,7 @@ export default css`
     }
 
     /* -------------------------------------------------------------------------
-     * 7. Animaciones (M1 del chat)
+     * 6. Animaciones de ENTRADA
      * -------------------------------------------------------------------------
      * - backdrop-in: el fondo oscuro hace fade-in suave.
      * - fade-in: dialogs aparecen con fade + leve scale (sensación de "pop").
@@ -188,23 +184,69 @@ export default css`
     }
 
     @keyframes type-modal-slide-up {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+    }
+
+    /* -------------------------------------------------------------------------
+     * 7. Animaciones de SALIDA
+     * -------------------------------------------------------------------------
+     * Las clases --closing las aplica type-modal.js cuando _closing=true.
+     * El DOM se mantiene montado mientras la animación corre y se desmonta
+     * cuando animationend dispara (o tras el fallback de 300 ms).
+     *
+     * forwards en animation-fill-mode mantiene el estado final visible hasta
+     * que el JS desmonta el DOM, evitando un flash de vuelta al estado inicial.
+     * pointer-events:none en el backdrop durante el cierre evita interacciones
+     * accidentales mientras la animación corre.
+     * ------------------------------------------------------------------------- */
+    :host([variant="page"]) .type-modal-content--closing {
+        animation: type-modal-slide-down 250ms ease-in forwards;
+    }
+
+    :host([variant="dialog"]) .type-modal-content--closing {
+        animation: type-modal-fade-out 200ms ease-in forwards;
+    }
+
+    .type-modal-backdrop--closing {
+        animation: type-modal-backdrop-out 250ms ease-in forwards;
+        pointer-events: none;
+    }
+
+    @keyframes type-modal-slide-down {
+        from { transform: translateY(0); }
+        to   { transform: translateY(100%); }
+    }
+
+    @keyframes type-modal-fade-out {
         from {
-            transform: translateY(100%);
+            opacity: 1;
+            transform: scale(1);
         }
         to {
-            transform: translateY(0);
+            opacity: 0;
+            transform: scale(0.96);
         }
+    }
+
+    @keyframes type-modal-backdrop-out {
+        from { opacity: 1; }
+        to   { opacity: 0; }
     }
 
     /* -------------------------------------------------------------------------
      * 8. Accesibilidad: respetar "menos movimiento"
      * -------------------------------------------------------------------------
-     * Usuarios con sensibilidad al movimiento pueden activar esta preferencia
-     * en el sistema operativo. Cumplir esto es buena práctica (WCAG 2.3.3).
+     * Usuarios con sensibilidad al movimiento pueden activar esta preferencia.
+     * Cumplir esto es buena práctica (WCAG 2.3.3).
+     * Al desactivar las animaciones, animationend no se dispara, por eso en el
+     * JS existe un fallback de 300 ms que limpia igualmente en ese caso.
      * ------------------------------------------------------------------------- */
     @media (prefers-reduced-motion: reduce) {
         .type-modal-backdrop,
-        .type-modal-content {
+        .type-modal-content,
+        .type-modal-backdrop--closing,
+        .type-modal-content--closing {
             animation: none;
         }
     }

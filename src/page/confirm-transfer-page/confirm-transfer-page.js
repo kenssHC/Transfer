@@ -1,47 +1,54 @@
+/**
+ * <confirm-transfer-page>
+ * =============================================================================
+ * Cambios respecto a la versión anterior:
+ *   - Cambia de variant="dialog" a variant="page": ocupa pantalla completa
+ *     con animación slide-up/slide-down, igual que new-transfer-page.
+ *   - Se añadió slot "header" con botón "← Volver" y título de la page.
+ *     El botón Volver despacha confirm-cancel (mismo evento que antes).
+ *   - El footer ahora solo tiene el botón "Transferir" (antes "Aceptar").
+ *     El botón "Volver" subió al header.
+ *   - Se importa type-header para el título de la page.
+ *
+ * Contrato (controlled component, sin cambios):
+ *   Props:
+ *     - open (Boolean)         → el padre controla la visibilidad.
+ *     - transferData (Object)  → datos del resumen a mostrar.
+ *                                Ver TRANSFER_DATA_MOCK en src/mocks/transfer-data.js.
+ *     - loading (Boolean)      → desactiva todos los botones durante el POST /transfers.
+ *
+ *   Eventos emitidos:
+ *     - confirm-accept  → detail: { transferData }  (el usuario confirma)
+ *     - confirm-cancel  → sin detail                (el usuario vuelve al formulario)
+ * =============================================================================
+ */
+
 import { html, LitElement } from "lit";
 import { styles } from "./confirm-transfer-page.css.js";
 import "@compositions/type-modal/type-modal.js";
+import "@compositions/type-header/type-header.js";
 import "@compositions/type-button/type-button.js";
 import "@compositions/transfer-summary/transfer-summary.js";
 
-/**
- * <confirm-transfer-page>
- *
- * Page (modal tipo "dialog") que se muestra DESPUÉS del formulario de
- * new-transfer-page y ANTES de successful-transfer-page.
- * Muestra al usuario un resumen de la transferencia (monto + cuenta origen
- * + beneficiario) para que la confirme antes de enviarla.
- *
- * Es un controlled component:
- *   - El padre controla la apertura con la prop `open`.
- *   - El padre debe pasar `transferData` (objeto con la transferencia).
- *   - El padre puede setear `loading=true` mientras se procesa el POST
- *     a /transfers; mientras `loading=true` ambos botones quedan disabled.
- *   - La page emite `confirm-accept` y `confirm-cancel`. El padre decide
- *     qué hacer (navegar a successful, volver al form, etc.).
- *
- * Eventos:
- *   - confirm-accept   → detail: { transferData }
- *   - confirm-cancel   → sin detail
- */
 export class ConfirmTransferPage extends LitElement {
   static properties = {
     /**
      * Datos de la transferencia a confirmar.
-     * Ver TRANSFER_DATA_MOCK (services/mocks/transfer-data.js).
+     * Estructura: { amount, currency, sourceAccount, beneficiary }
+     * Ver TRANSFER_DATA_MOCK en src/mocks/transfer-data.js.
      * @type {Object|null}
      */
     transferData: { type: Object },
 
     /**
-     * Controla la visibilidad del modal. Reactivo.
+     * Controla la visibilidad del modal. Reactivo. El padre lo maneja.
      * @type {Boolean}
      */
     open: { type: Boolean, reflect: true },
 
     /**
-     * Estado de carga. Cuando es true, los botones quedan disabled
-     * para evitar dobles envíos durante el POST /transfers.
+     * Cuando es true, todos los botones quedan disabled para evitar
+     * dobles envíos mientras se procesa el POST /transfers.
      * @type {Boolean}
      */
     loading: { type: Boolean, reflect: true },
@@ -76,10 +83,28 @@ export class ConfirmTransferPage extends LitElement {
   render() {
     return html`
       <type-modal
-        variant="dialog"
+        variant="page"
         ?open=${this.open}
-        has-footer
+        ?scrollable=${true}
+        ?full-height=${true}
+        ?has-footer=${true}
       >
+        <div slot="header" class="confirm-transfer-page__header">
+          <type-button
+            class="confirm-transfer-page__back-btn"
+            type="button"
+            text="Volver"
+            variant="secondary"
+            icon-name="arrow-left"
+            icon-position="left"
+            ?disabled=${this.loading}
+            @click=${this._handleCancel}
+          ></type-button>
+          <type-header
+            .title=${"Confirmar transferencia"}
+          ></type-header>
+        </div>
+
         <div slot="body">
           <transfer-summary
             .transferData=${this.transferData}
@@ -89,16 +114,12 @@ export class ConfirmTransferPage extends LitElement {
 
         <div slot="footer" class="confirm-transfer-page__footer">
           <type-button
-            text="Aceptar"
+            type="button"
+            text="Transferir"
+            icon-position="right"
             variant="default"
             ?disabled=${this.loading}
             @click=${this._handleAccept}
-          ></type-button>
-          <type-button
-            text="Volver"
-            variant="secondary"
-            ?disabled=${this.loading}
-            @click=${this._handleCancel}
           ></type-button>
         </div>
       </type-modal>

@@ -10,6 +10,18 @@
  *     confirm-transfer-page, successful-transfer-page).
  *   - Dialog-modales pequeños centrados (errores, avisos, "cuenta bloqueada"...).
  *
+ * * Cambios respecto a la versión anterior:
+ *   - Se eliminó el focus trap (rebote Tab entre primer/último elemento).
+ *     Se conserva _focusFirst (mueve el foco al primer elemento al abrir)
+ *     y la restitución de foco al cerrar (accesibilidad básica).
+ *   - Se añadió animación de CIERRE mediante la prop interna _closing.
+ *     Cuando open pasa a false, el DOM permanece visible el tiempo que
+ *     dure la animación (slide-down para "page", fade-out para "dialog")
+ *     y luego se desmonta. Esto evita el desmontado abrupto sin animación.
+ *   - Los colores y variables del :host se eliminaron de aquí; ahora son
+ *     responsabilidad exclusiva de index.css (:root). type-modal solo
+ *     los consume con var(--type-modal-*).
+ * 
  * Contrato público:
  *   Atributos / props:
  *     - open (Boolean, reflect)         → controla la visibilidad.
@@ -38,6 +50,7 @@
  */
 
 import { LitElement, html, nothing } from "lit";
+import { classMap } from "lit/directives/class-map.js";
 import styles from "./type-modal.css.js";
 
 export class TypeModal extends LitElement {
@@ -59,6 +72,14 @@ export class TypeModal extends LitElement {
         scrollable: { type: Boolean, reflect: true },
         fullHeight: { type: Boolean, reflect: true, attribute: "full-height" },
         hasFooter: { type: Boolean, reflect: true, attribute: "has-footer" },
+
+        /**
+         * Estado interno que mantiene el DOM visible durante la animación de
+         * cierre. Cuando open pasa a false, _closing se pone en true mientras
+         * la animación CSS corre; al terminar, se pone en false y el DOM se
+         * desmonta. No se refleja como atributo porque es un detalle interno.
+         */
+        _closing: { state: true },
     };
 
     constructor() {
@@ -69,18 +90,27 @@ export class TypeModal extends LitElement {
         this.fullHeight = false;
         this.hasFooter = false;
 
-        // Guarda quién tenía el foco ANTES de abrir el modal, para devolvérselo
-        // al cerrar. Mejora la accesibilidad (no perdemos el contexto del usuario).
+        this._closing = false;
+
+        /**
+         * Elemento que tenía el foco antes de abrir el modal.
+         * Se restaura al cerrar para no perder el contexto de navegación
+         * del usuario (requisito de accesibilidad WCAG 2.1 - 2.4.3).
+         */
         this._previousActiveElement = null;
 
-        // Hacemos bind del handler porque addEventListener pierde el `this` del
-        // componente. Sin este bind, dentro del handler `this` apuntaría al
-        // elemento DOM que disparó el evento, no a la instancia de TypeModal.
-        this._handleKeyDown = this._handleKeyDown.bind(this);
+        /**
+         * Función que cancela una animación de cierre en curso.
+         * Se usa cuando open vuelve a true antes de que termine la animación
+         * de salida, evitando que el scroll se desbloquee innecesariamente.
+         */
+        this._abortClose = null;
 
-        // Bandera local: ¿esta instancia particular tiene activo el lock de scroll?
-        // Sirve para evitar desbloquear el body más de una vez (si el componente
-        // se destruye o cambia open varias veces seguidas).
+        /**
+         * Bandera local: ¿esta instancia tiene activo el lock de scroll del body?
+         * Evita desbloquear el body más de una vez si el componente se destruye
+         * o cambia de open varias veces seguidas.
+         */
         this._bodyScrollLocked = false;
     }
 
@@ -91,6 +121,8 @@ export class TypeModal extends LitElement {
     /**
      * Lifecycle de Lit: se ejecuta cada vez que termina un render.
      * `changedProps` es un Map con las props que cambiaron y sus valores previos.
+     * Reacciona a cambios de la prop `open` para activar/desactivar efectos
+     * (scroll lock, foco, animaciones).
      *
      * Aquí detectamos las transiciones de `open` para activar/desactivar
      * los side-effects (scroll lock, focus, listeners de teclado).
@@ -99,6 +131,9 @@ export class TypeModal extends LitElement {
      *   - El constructor corre antes de que el DOM exista → no podemos enfocar.
      *   - `firstUpdated` solo corre 1 vez → no detectaría cambios posteriores.
      *   - `updated` corre en cada cambio → perfecto para reaccionar a `open`.
+    * La condición `changedProps.get("open") === true` detecta la transición
+     * open:true → open:false (el Map guarda el VALOR ANTERIOR). Esto evita
+     * llamar a _onClose en el primer render cuando open ya era false.
      */
     updated(changedProps) {
         if (!changedProps.has("open")) return;
@@ -117,15 +152,27 @@ export class TypeModal extends LitElement {
      * Limpieza defensiva: si el modal se destruye mientras está abierto,
      * desbloqueamos el scroll del body y removemos el listener de teclado.
      * Sin esto, el body podría quedar con overflow:hidden para siempre.
+     * 
+     * Limpieza defensiva para que el body no quede con overflow:hidden
+     * si el modal se destruye mientras estaba abierto o cerrándose.
      */
     disconnectedCallback() {
         super.disconnectedCallback();
+
+        if (this._abortClose) {
+            this._abortClose();
+            this._abortClose = null;
+        }
         if (this._bodyScrollLocked) {
             TypeModal._unlockBodyScroll();
             this._bodyScrollLocked = false;
         }
-        this.removeEventListener("keydown", this._handleKeyDown);
+        this._closing = false;
     }
+
+    // =========================================================================
+    // APERTURA / CIERRE
+    // =========================================================================
 
     /**
      * Side-effects al ABRIR el modal:
@@ -133,29 +180,75 @@ export class TypeModal extends LitElement {
      *   2. Guarda el elemento que tenía el foco (para devolverlo al cerrar).
      *   3. Espera al render y mueve el foco al primer elemento focusable
      *      dentro del modal (mejor accesibilidad).
-     *   4. Activa el focus trap (M3 del chat) escuchando keydown.
-     *
-     * `this.updateComplete` es una Promise que se resuelve cuando Lit terminó
-     * de renderizar. La usamos porque _focusFirst necesita leer el DOM ya pintado.
+     * 
+     * Side-effects al ABRIR el modal.
+     * Si había una animación de cierre en curso, la cancelamos primero para
+     * no desbloquear el scroll ni restaurar el foco innecesariamente.
      */
     _onOpen() {
+        if (this._abortClose) {
+            // Cancelamos el cierre en curso: el scroll ya estaba bloqueado
+            // por la apertura anterior, no hace falta re-bloquearlo.
+            this._abortClose();
+            this._abortClose = null;
+            this._closing = false;
+            this.updateComplete.then(() => this._focusFirst());
+            return;
+        }
+
         TypeModal._lockBodyScroll();
         this._bodyScrollLocked = true;
-
         this._previousActiveElement = document.activeElement;
-
         this.updateComplete.then(() => this._focusFirst());
-
-        this.addEventListener("keydown", this._handleKeyDown);
     }
 
     /**
-     * Side-effects al CERRAR el modal:
-     *   1. Libera el scroll del body (si esta instancia lo tenía bloqueado).
-     *   2. Devuelve el foco al elemento que lo tenía antes (accesibilidad).
-     *   3. Quita el listener de teclado del focus trap.
+     * Side-effects al CERRAR el modal.
+     * En lugar de desmontar el DOM inmediatamente, se activa _closing=true
+     * para que el CSS pueda correr la animación de salida. Cuando termina
+     * (o tras un fallback de 300 ms para prefers-reduced-motion), se llama
+     * a _cleanupAfterClose para desbloquear el scroll y desmontar el DOM.
      */
     _onClose() {
+        this._closing = true;
+
+        let aborted = false;
+        this._abortClose = () => { aborted = true; };
+
+        this.updateComplete.then(() => {
+            if (aborted) return;
+
+            const content = this.renderRoot.querySelector(".type-modal-content");
+            if (!content) {
+                if (!aborted) this._cleanupAfterClose();
+                return;
+            }
+
+            // Fallback para cuando animation:none (prefers-reduced-motion o en tests).
+            // Si animationend no se dispara, limpiamos igualmente en 300 ms.
+            const fallback = setTimeout(() => {
+                if (!aborted) this._cleanupAfterClose();
+            }, 300);
+
+            const handleAnimationEnd = () => {
+                clearTimeout(fallback);
+                content.removeEventListener("animationend", handleAnimationEnd);
+                if (!aborted) this._cleanupAfterClose();
+            };
+
+            content.addEventListener("animationend", handleAnimationEnd);
+        });
+    }
+
+    /**
+     * Limpieza final tras completarse la animación de cierre.
+     * Desmonta el DOM (poniendo _closing=false), libera el scroll del body
+     * y devuelve el foco al elemento anterior.
+     */
+    _cleanupAfterClose() {
+        this._abortClose = null;
+        this._closing = false;
+
         if (this._bodyScrollLocked) {
             TypeModal._unlockBodyScroll();
             this._bodyScrollLocked = false;
@@ -165,8 +258,6 @@ export class TypeModal extends LitElement {
             this._previousActiveElement.focus();
         }
         this._previousActiveElement = null;
-
-        this.removeEventListener("keydown", this._handleKeyDown);
     }
 
     // =========================================================================
@@ -208,28 +299,19 @@ export class TypeModal extends LitElement {
     }
 
     // =========================================================================
-    // FOCUS TRAP (accesibilidad, M3 del chat)
+    // FOCO INICIAL (accesibilidad básica, sin focus trap)
     // =========================================================================
     //
-    // Atrapa el foco DENTRO del modal cuando el usuario navega con Tab.
-    // Sin esto, el Tab saldría al contenido detrás del backdrop → confuso y
-    // rompe la expectativa de un modal (debe ser una "isla" hasta que cierre).
+    // Al abrir el modal, movemos el foco al primer elemento interactivo. Esto
+    // le indica al screen reader que hay contenido nuevo y dónde empezar.
     //
-    // El reto técnico: el contenido del modal está en SLOTS (light DOM), no
-    // en el shadow root. Tenemos que recorrer los <slot> y pedirles los
-    // elementos asignados (slot.assignedElements) para encontrar los focusables.
+    // Nota: ya NO hay trap (el Tab puede salir del modal). Si en el futuro se
+    // requiere trap, reintroducir _handleKeyDown y el listener de keydown.
+    //
+    // El reto técnico es que el contenido está en SLOTS (light DOM), no en el
+    // shadow root. slot.assignedElements() resuelve los nodos del padre.
     // =========================================================================
 
-    /**
-     * Busca todos los elementos focusables dentro del modal (en los slots).
-     *
-     * - `slot.assignedElements({ flatten: true })` devuelve los nodos del light
-     *   DOM que el consumidor metió en cada slot. `flatten: true` también
-     *   resuelve slots anidados.
-     * - Para cada elemento asignado, comprobamos si ÉL mismo es focusable
-     *   (ej. un <button slot="header">) y además buscamos focusables anidados
-     *   dentro de él (ej. botones dentro de un <div slot="footer">).
-     */
     _getFocusableElements() {
         const selectors = [
             "a[href]",
@@ -258,8 +340,7 @@ export class TypeModal extends LitElement {
     /**
      * Al abrir el modal, mueve el foco al primer focusable.
      * Si no hay ninguno (modal puramente informativo), hace focusable el
-     * propio contenedor con tabindex=-1 y lo enfoca, para que el screen reader
-     * anuncie el modal y el Tab no se escape al fondo.
+     * contenedor para que el screen reader anuncie el modal.
      */
     _focusFirst() {
         const focusables = this._getFocusableElements();
@@ -275,63 +356,33 @@ export class TypeModal extends LitElement {
     }
 
     /**
-     * Lógica del focus trap: cuando el usuario presiona Tab estando en el
-     * último focusable, lo manda al primero (y viceversa con Shift+Tab).
-     * El foco "rebota" dentro del modal y nunca se sale.
-     */
-    _handleKeyDown(e) {
-        if (e.key !== "Tab") return;
-        const focusables = this._getFocusableElements();
-        if (focusables.length === 0) {
-            // Sin focusables: bloqueamos el Tab para no salir.
-            e.preventDefault();
-            return;
-        }
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-            // Shift+Tab desde el primero → saltar al último.
-            e.preventDefault();
-            last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-            // Tab desde el último → saltar al primero.
-            e.preventDefault();
-            first.focus();
-        }
-    }
-
-    /**
-     * stopPropagation en el contenido (M5 del chat).
-     *
-     * Aunque ya no cerramos por click en el backdrop, esto evita que un click
-     * dentro del modal burbujee fuera del componente y dispare handlers de
-     * elementos padres que no debería (por ej. un router que escucha clicks
-     * en su contenedor). Es defensa preventiva.
+     * Evita que un click DENTRO del modal burbujee hacia elementos padres
+     * (p.ej. un router que escucha clicks en su contenedor). Es defensa
+     * preventiva independientemente de si cerramos por backdrop o no.
      */
     _handleContentClick(e) {
         e.stopPropagation();
     }
 
     /**
-     * Render:
-     * - Si open=false, devolvemos `nothing` (símbolo de Lit que NO crea DOM).
-     *   Esto es más eficiente que renderizar y ocultar con display:none, porque
-     *   no monta el contenido cuando el modal está cerrado.
-     * - El <div backdrop> es solo el fondo oscuro. Ya NO escucha clicks
-     *   porque el equipo decidió que ningún variant cierra por backdrop.
-     * - El <div content> tiene role="dialog" y aria-modal="true" para que
-     *   los screen readers anuncien el modal correctamente.
-     * - El slot footer solo se renderiza si hasFooter=true, para que ni siquiera
-     *   exista en el DOM cuando no se usa.
+     * El DOM se mantiene visible cuando _closing es true para que la animación
+     * CSS de salida pueda correr. Solo se desmonta cuando ambos son false.
+     *
+     * Las clases --closing activan las animaciones de salida definidas en el CSS.
      */
     render() {
-        if (!this.open) return nothing;
+        if (!this.open && !this._closing) return nothing;
 
         return html`
-            <div class="type-modal-backdrop">
+            <div class=${classMap({
+                "type-modal-backdrop": true,
+                "type-modal-backdrop--closing": this._closing,
+            })}>
                 <div
-                    class="type-modal-content"
+                    class=${classMap({
+                        "type-modal-content": true,
+                        "type-modal-content--closing": this._closing,
+                    })}
                     role="dialog"
                     aria-modal="true"
                     @click=${this._handleContentClick}

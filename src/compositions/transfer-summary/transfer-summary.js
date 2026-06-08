@@ -7,6 +7,28 @@ import { formatAmount, maskAccountNumber } from "@utils/format.js";
 /**
  * <transfer-summary>
  *
+ * TODO (propuesta de unificación para EYM — successful-transfer-page):
+ * Actualmente existen DOS estructuras paralelas para mostrar un resumen de transferencia:
+ *   1. Este componente (transfer-summary): contrato { amount, currency, sourceAccount, beneficiary }.
+ *      Lo usa confirm-transfer-page. Acepta un slot por defecto para campos extra.
+ *   2. transfer-summary-card + transfer-summary-list (src/organisms/): props planas
+ *      (originAccount, originAccountNumber, beneficiaryName, beneficiaryLastName,
+ *      transactionNumber, date, time, concept, status, current, amount).
+ *      Lo usa successful-transfer-page.
+ *
+ * Propuesta: que successful-transfer-page adopte este componente (transfer-summary)
+ * y pase los campos extra (fecha, hora, transactionNumber, status, concept) como
+ * <info-field> dentro del slot por defecto. Esto eliminaría transfer-summary-card y
+ * transfer-summary-list, reduciendo duplicidad y usando el mismo contrato de datos.
+ * Ver src/mocks/transfer-data.js para la estructura de referencia.
+ *
+ * Impacto estimado del cambio:
+ *   - successful-transfer-page.js: adaptar el render para usar <transfer-summary> + slots.
+ *   - src/mocks/transfer.mock.js (SUCCESSFUL_TRANSFER_RESPONSE_MOCK): extender con
+ *     sourceAccount y beneficiary en vez de props planas.
+ *   - Se pueden eliminar: organisms/transfer-summary-card/, compositions/transfer-summary-list/.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
  * Composition REUTILIZABLE que muestra el resumen visual de una transferencia.
  * La consumen confirm-transfer-page y (a futuro) successful-transfer-page.
  *
