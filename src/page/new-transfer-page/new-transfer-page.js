@@ -7,6 +7,10 @@ import { TRANSFER_FORM_FIELDS } from "../../utils/transfer-form/configTransferFo
 import { resolveDestinationAccount } from "../../services/bankingTransferService.js";
 import "../../components/loading-overlay/loading-overlay.js";
 import "../../compositions/type-button/type-button.js";
+import {
+  NEW_TRANSFER_PAGE_LITERALS as LITERALS,
+  NEW_TRANSFER_PAGE_CONFIG as CONFIG,
+} from "@utils/new-transfer-page/newTransferPageConfig.js";
 import styles from "./new-transfer-page.css.js";
 export class NewTransferPage extends LitElement {
   static properties = {
@@ -51,10 +55,7 @@ export class NewTransferPage extends LitElement {
   }
 
   _goNextStep(formField) {
-    // Normaliza los datos al contrato unificado de transferData para que
-    // confirm-transfer-page (y a futuro successful-transfer-page) lo consuman
-    // sin depender de la estructura interna del formulario.
-    // Ver src/mocks/transfer-data.js para la estructura esperada.
+    //console.log("formField", formField);
     const transferData = {
       amount: formField.amount,
       currency: formField.currency,
@@ -70,13 +71,13 @@ export class NewTransferPage extends LitElement {
       },
     };
 
-    // El evento sube hasta MyElement, que lo captura con @confirm-requested
-    // para mostrar confirm-transfer-page (step 2).
-    this.dispatchEvent(new CustomEvent("confirm-requested", {
-      detail: transferData,
-      bubbles: true,
-      composed: true,
-    }));
+    this.dispatchEvent(
+      new CustomEvent("confirm-requested", {
+        detail: transferData,
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   async _getDestinationAccountDetails(accountCustomer) {
@@ -86,12 +87,11 @@ export class NewTransferPage extends LitElement {
   }
 
   _getCurrency(currency) {
-    if (currency === "USD") {
-      return "dollar-sign";
-    }
-    if (currency === "PEN") {
-      return "dollar-sign";
-    }
+    const listCurrency = {
+      USD: "dollar-sign",
+      PEN: "dollar-sign",
+    };
+    return listCurrency[currency] ?? "dollar-sign";
   }
 
   _returnPage() {
@@ -104,6 +104,15 @@ export class NewTransferPage extends LitElement {
     );
   }
 
+  _renderActionModal() {
+    return html`
+      <action-modal
+        action-type=${this._actionType}
+        @action-modal-action=${this._handleActionModalAction}
+      ></action-modal>
+    `;
+  }
+
   static get styles() {
     return styles;
   }
@@ -113,25 +122,24 @@ export class NewTransferPage extends LitElement {
       ${this._loading ? html`<loading-overlay></loading-overlay>` : nothing}
       <type-modal
         ?open=${true}
-        variant="page"
-        ?scrollable=${true}
-        ?full-height=${true}
-        ?has-footer=${true}
-        class="modal-accounts"
+        .variant=${CONFIG.modal.variant}
+        ?scrollable=${CONFIG.modal.scrollable}
+        ?full-height=${CONFIG.modal.fullHeight}
+        ?has-footer=${CONFIG.modal.hasFooter}
       >
         <div slot="header">
           <type-button
             class="container-button"
-            icon-name="arrow-left"
-            icon-position="left"
-            text="Volver"
-            variant="secondary"
-            .type=${"button"}
+            icon-name=${CONFIG.backButton.iconName}
+            icon-position=${CONFIG.backButton.iconPosition}
+            .text=${LITERALS.backButton.text}
+            .variant=${CONFIG.backButton.variant}
+            .type=${CONFIG.backButton.type}
             @click=${this._returnPage}
           ></type-button>
           <type-header
-            .title=${"Nueva Transferencia"}
-            .subtitle=${"Complete los datos de la transferencia"}
+            .title=${LITERALS.header.title}
+            .subtitle=${LITERALS.header.subtitle}
           ></type-header>
         </div>
 

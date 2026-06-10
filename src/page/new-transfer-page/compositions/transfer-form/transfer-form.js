@@ -8,6 +8,10 @@ import {
 import "../../../../compositions/type-input/type-input.js";
 import "../../../../compositions/type-button/type-button.js";
 import "../../../../components/type-icon/type-icon.js";
+import {
+  NEW_TRANSFER_PAGE_LITERALS as LITERALS,
+  NEW_TRANSFER_PAGE_CONFIG as CONFIG,
+} from "@utils/new-transfer-page/newTransferPageConfig.js";
 
 import styles from "./transfer-form.css.js";
 
@@ -22,7 +26,7 @@ export class TransferForm extends LitElement {
     },
 
     configFormFields: {
-      type: Array,
+      type: Object,
     },
 
     availableBalance: {
@@ -39,13 +43,22 @@ export class TransferForm extends LitElement {
     this.formFieldStates = {};
     this.configFormFields = {};
     this.availableBalance = 100;
+    this.stateForm = false;
     this.currency = "";
   }
-
+  /*
   firstUpdated() {
     this.formFieldStates = createInitialFormStates(this.configFormFields);
     console.log("currency", this.currency);
+  }*/
+
+  
+  willUpdate(changedProps) {
+    if (changedProps.has("configFormFields")) {
+      this.formFieldStates = createInitialFormStates(this.configFormFields);
+    }
   }
+
 
   _sendForm() {
     const formValues = getFormValues(this.formFieldStates);
@@ -59,9 +72,13 @@ export class TransferForm extends LitElement {
   }
 
   _validateForm() {
-    this.stateForm = Object.values(this.formFieldStates).every(
+    const isValid = Object.values(this.formFieldStates).every(
       ({ isValid }) => isValid === true,
     );
+
+    if (this.stateForm !== isValid) {
+      this.stateForm = isValid;
+    }
   }
 
   _onFieldChange(event) {
@@ -114,7 +131,7 @@ export class TransferForm extends LitElement {
         .errorMessage=${errorMessageField}
         .valid=${this.formFieldStates[name]?.isValid}
       >
-        ${hasIcon
+        ${hasIcon && this.currency
           ? html`<type-icon
               slot="prefix"
               icon-name="${this.currency}"
@@ -135,12 +152,12 @@ export class TransferForm extends LitElement {
           )}
         </div>
         <type-button
-          .text=${"Continuar"}
-          .variant=${"default"}
-          .type=${"button"}
-          icon-name="arrow-right"
+          .text=${LITERALS.continueButton.text}
+          .variant=${CONFIG.continueButton.variant}
+          .type=${CONFIG.continueButton.type}
+          icon-name=${CONFIG.continueButton.iconName}
           @click="${this._onSubmit}"
-          .iconPosition=${"right"}
+          .iconPosition=${CONFIG.continueButton.iconPosition}
           ?disabled="${!this.stateForm}"
         ></type-button>
       </form>
