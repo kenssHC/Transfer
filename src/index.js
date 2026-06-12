@@ -239,7 +239,6 @@ export class MyElement extends LitElement {
       ${this._renderStep(this.step)}
       <entelgy-global-transfers-api-dm
         id="transfers"
-        simulate-error
         @transfer-api-dm-create=${this._handleDataSuccess}
         @transfer-api-dm-fetch-error=${this._handleError}
       >

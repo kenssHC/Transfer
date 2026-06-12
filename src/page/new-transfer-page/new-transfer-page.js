@@ -11,6 +11,8 @@ import {
   NEW_TRANSFER_PAGE_LITERALS as LITERALS,
   NEW_TRANSFER_PAGE_CONFIG as CONFIG,
 } from "@utils/new-transfer-page/newTransferPageConfig.js";
+
+import "../action-modal/action-modal.js";
 import styles from "./new-transfer-page.css.js";
 export class NewTransferPage extends LitElement {
   static properties = {
@@ -18,7 +20,19 @@ export class NewTransferPage extends LitElement {
       type: Object,
     },
 
+    _lastFormPayload: {
+      type: Object,
+    },
+
     _loading: {
+      type: Boolean,
+    },
+
+    _actionType: {
+      type: String,
+    },
+
+    _actionModalOpen: {
       type: Boolean,
     },
   };
@@ -26,36 +40,52 @@ export class NewTransferPage extends LitElement {
   constructor() {
     super();
     this.accountCustomer = {};
+    this._lastFormPayload = {};
     this._loading = false;
+    this._actionType = "";
+    this._actionModalOpen = false;
+    this._retryCount = 0;
   }
 
-  async _sendForm(event) {
-    const accountCustomer = this.accountCustomer.accountNumber;
+  async _sendForm(lastFormPayload) {
     this._loading = true;
-    const responseDestinationAccount =
-      await resolveDestinationAccount(accountCustomer);
+    const responseDestinationAccount = await resolveDestinationAccount(
+      this._lastFormPayload.accountNumber,
+      this._lastFormPayload.destinationAccount,
+    );
     this._loading = false;
-    if (responseDestinationAccount.success) {
-      const formField = {
-        ...event.detail,
-        ...this.accountCustomer,
+    if (responseDestinationAccount.status === "OK") {
+      const finalFormPayload = {
+        ...lastFormPayload,
         destinationAccountName:
           responseDestinationAccount.data.accountHolderName,
         destinationAccountCurrency: responseDestinationAccount.data.currency,
       };
 
-      return this._goNextStep(formField);
+      return this._goNextStep(finalFormPayload);
     }
 
-    return this._openModalError(responseDestinationAccount.error);
+    if (this._retryCount < 3) {
+      return this._openModalError(responseDestinationAccount.errorCode);
+    }
+    this._returnPage();
+  }
+
+  _handleFormSubmit(event) {
+    const lastFormPayload = {
+      ...event.detail,
+      ...this.accountCustomer,
+    };
+    this._lastFormPayload = lastFormPayload;
+    this._sendForm(lastFormPayload);
   }
 
   _openModalError(configModal) {
-    console.log("configModal", configModal);
+    this._actionType = configModal;
+    this._actionModalOpen = true;
   }
 
   _goNextStep(formField) {
-    //console.log("formField", formField);
     const transferData = {
       amount: formField.amount,
       currency: formField.currency,
@@ -80,12 +110,6 @@ export class NewTransferPage extends LitElement {
     );
   }
 
-  async _getDestinationAccountDetails(accountCustomer) {
-    const responseDestinationAccount =
-      await resolveDestinationAccount(accountCustomer);
-    console.log("responseDestinationAccount", responseDestinationAccount);
-  }
-
   _getCurrency(currency) {
     const listCurrency = {
       USD: "dollar-sign",
@@ -103,10 +127,20 @@ export class NewTransferPage extends LitElement {
       }),
     );
   }
+  _handleActionModalAction(event) {
+    this._actionType = "";
+    this._actionModalOpen = false;
+    if (event.detail.buttonAction === "retry") {
+      this._retryCount += 1;
+      return this._sendForm(this._lastFormPayload);
+    }
+    this._retryCount = 0;
+  }
 
   _renderActionModal() {
     return html`
       <action-modal
+        ?open=${true}
         action-type=${this._actionType}
         @action-modal-action=${this._handleActionModalAction}
       ></action-modal>
@@ -121,6 +155,7 @@ export class NewTransferPage extends LitElement {
     return html`
       ${this._loading ? html`<loading-overlay></loading-overlay>` : nothing}
       <type-modal
+        class="modal-accounts"
         ?open=${true}
         .variant=${CONFIG.modal.variant}
         ?scrollable=${CONFIG.modal.scrollable}
@@ -151,13 +186,13 @@ export class NewTransferPage extends LitElement {
             .configFormFields=${TRANSFER_FORM_FIELDS}
             .availableBalance=${this.accountCustomer.availableBalance}
             .currency=${this._getCurrency(this.accountCustomer.currency)}
-            @form-submit="${this._sendForm}"
+            @form-submit="${this._handleFormSubmit}"
           ></transfer-form>
         </div>
       </type-modal>
+      ${this._actionModalOpen ? this._renderActionModal() : nothing}
     `;
   }
 }
 
 customElements.define("new-transfer-page", NewTransferPage);
-/*<from-account-card></from-account-card>*/

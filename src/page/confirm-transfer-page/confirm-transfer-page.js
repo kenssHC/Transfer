@@ -6,33 +6,10 @@ import "@compositions/type-button/type-button.js";
 import "@compositions/transfer-summary/transfer-summary.js";
 import "@pages/action-modal/action-modal.js";
 
-/**
- * <confirm-transfer-page>
- *
- * Page-modal de confirmación de transferencia (Step 2 del flujo).
- * Muestra el resumen de la transferencia y permite confirmar o volver.
- *
- * Contrato (controlled component):
- *   Props:
- *     - open (Boolean)              → el padre controla la visibilidad.
- *     - transferData (Object)       → datos del resumen. Ver src/mocks/transfer-data.js.
- *     - transferStatus (String)     → estado que viene del padre: "" | "error" | "idle".
- *                                     Cuando llega "error", se muestra el action-modal.
- *
- *   Eventos emitidos:
- *     - confirm-accept  → detail: { transferData }  (usuario confirma)
- *     - confirm-cancel  → sin detail                (usuario vuelve o se superan 3 reintentos)
- *     - transfer-retry  → sin detail                (usuario pide reintentar la llamada al DM)
- */
 export class ConfirmTransferPage extends LitElement {
   static properties = {
     transferData: { type: Object },
     open: { type: Boolean, reflect: true },
-    /**
-     * Estado de la transferencia pasado por el padre.
-     * Cuando cambia a "error", esta page muestra el action-modal de reintento.
-     * @type {String}
-     */
     transferStatus: { type: String },
     _retryCount: { state: true },
     _actionModalOpen: { state: true },
@@ -57,10 +34,6 @@ export class ConfirmTransferPage extends LitElement {
       this._handleTransferError();
     }
   }
-
-  // =========================================================================
-  // MANEJO DE ERRORES (patrón idéntico a accounts-page)
-  // =========================================================================
 
   _handleTransferError() {
     this._retryCount += 1;
@@ -97,10 +70,6 @@ export class ConfirmTransferPage extends LitElement {
     }));
   }
 
-  // =========================================================================
-  // HANDLERS DE BOTONES PRINCIPALES
-  // =========================================================================
-
   _handleAccept() {
     this.dispatchEvent(new CustomEvent("confirm-accept", {
       detail: { transferData: this.transferData },
@@ -120,13 +89,10 @@ export class ConfirmTransferPage extends LitElement {
     }));
   }
 
-  // =========================================================================
-  // RENDER
-  // =========================================================================
-
   _renderActionModal() {
     return html`
       <action-modal
+        ?open=${true}
         action-type=${this._actionType}
         @action-modal-action=${this._handleActionModalAction}
       ></action-modal>
@@ -134,6 +100,7 @@ export class ConfirmTransferPage extends LitElement {
   }
 
   _renderContent() {
+    console.log('transferData', this.transferData);
     return html`
       <type-modal
         variant="page"
@@ -156,14 +123,14 @@ export class ConfirmTransferPage extends LitElement {
             .title=${"Confirmar transferencia"}
           ></type-header>
         </div>
-
+ 
         <div slot="body">
           <transfer-summary
             .transferData=${this.transferData}
             amount-label="Monto a transferir"
           ></transfer-summary>
         </div>
-
+ 
         <div slot="footer" class="confirm-transfer-page__footer">
           <type-button
             type="button"
@@ -174,7 +141,7 @@ export class ConfirmTransferPage extends LitElement {
           ></type-button>
         </div>
       </type-modal>
-
+ 
       ${this._actionModalOpen ? this._renderActionModal() : nothing}
     `;
   }

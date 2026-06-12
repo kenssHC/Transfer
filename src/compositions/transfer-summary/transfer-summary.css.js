@@ -1,12 +1,9 @@
 import { css } from "lit";
-
+ 
 export const styles = css`
   :host {
     display: block;
-
-    /* Tokens locales con valores por defecto. Si se necesita personalizar
-       desde la page (ej. otro gradiente para successful), se sobrescriben
-       estas variables sin tocar este archivo. */
+ 
     --transfer-summary-amount-bg: linear-gradient(135deg, #6c5ce7 0%, #8e44ad 100%);
     --transfer-summary-amount-color: #ffffff;
     --transfer-summary-amount-radius: 0.75rem;
@@ -16,13 +13,13 @@ export const styles = css`
     --transfer-summary-gap: 0.5rem;
     --transfer-summary-muted-color: var(--text-muted, #9ca3af);
   }
-
+ 
   .transfer-summary {
     display: flex;
     flex-direction: column;
     gap: var(--transfer-summary-gap);
   }
-
+ 
   .transfer-summary__amount-card {
     background: var(--transfer-summary-amount-bg);
     color: var(--transfer-summary-amount-color);
@@ -32,37 +29,35 @@ export const styles = css`
     flex-direction: column;
     gap: 0.25rem;
   }
-
+ 
   .transfer-summary__amount-label {
     --text-color: var(--transfer-summary-amount-color);
     opacity: 0.85;
   }
-
+ 
   .transfer-summary__amount-value {
     --text-color: var(--transfer-summary-amount-color);
   }
-
+ 
   .transfer-summary__fields {
     background: var(--transfer-summary-card-bg);
     border-radius: var(--transfer-summary-card-radius);
     display: flex;
     flex-direction: column;
   }
-
-  /* Línea divisoria sutil entre info-fields apilados.
-     Sin separador en el último para mantener limpio el borde inferior. */
+ 
   .transfer-summary__fields ::slotted(info-field:not(:last-child)),
   .transfer-summary__fields info-field:not(:last-child) {
     border-bottom: 1px solid #f0f1f3;
   }
-
+ 
   .transfer-summary__value-block {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: 0.125rem;
   }
-
+ 
   .transfer-summary__muted {
     --text-color: var(--transfer-summary-muted-color);
   }

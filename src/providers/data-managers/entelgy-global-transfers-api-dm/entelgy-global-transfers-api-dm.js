@@ -3,12 +3,8 @@ import { SUCCESSFUL_TRANSFER_RESPONSE_MOCK } from "@mocks/transfer.mock.js";
 import { fireEvent } from "@utils/utils";
 
 class EntelgyGlobalTransfersApiDm extends LitElement {
+
   static properties = {
-    /**
-     * Flag de prueba: cuando es true, _sendPost rechaza la promesa para
-     * simular un error de backend y poder probar el flujo de reintentos.
-     * Uso: <entelgy-global-transfers-api-dm simulate-error></...>
-     */
     simulateError: { type: Boolean, attribute: "simulate-error" },
   };
 
