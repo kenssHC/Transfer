@@ -8,12 +8,12 @@ import "@pages/action-modal/action-modal.js";
 import {
   CONFIRM_TRANSFER_PAGE_CONFIG as CONFIG,
   CONFIRM_TRANSFER_PAGE_LITERALS as LITERALS,
-} from "@utils/confirm-transfer-page/confirmTransferPageConfig.js";
+} from "./utils/confirmTransferPageConfig.js";
 
 export class ConfirmTransferPage extends LitElement {
   static properties = {
     transferData: { type: Object },
-    open: { type: Boolean, reflect: true },
+    open: { type: Boolean },
     transferStatus: { type: String },
     _retryCount: { state: true },
     _actionModalOpen: { state: true },
@@ -131,7 +131,11 @@ export class ConfirmTransferPage extends LitElement {
         <div slot="body">
           <transfer-summary
             .transferData=${this.transferData}
-            amount-label=${LITERALS.transferSummary.amountLabel}
+            .amountLabel=${LITERALS.transferSummary.amountLabel}
+            .sourceAccountLabel=${LITERALS.transferSummary.sourceAccountLabel}
+            .beneficiaryLabel=${LITERALS.transferSummary.beneficiaryLabel}
+            .emptySourceAccountText=${LITERALS.transferSummary.emptySourceAccountText}
+            .emptyBeneficiaryText=${LITERALS.transferSummary.emptyBeneficiaryText}
           ></transfer-summary>
         </div>
  

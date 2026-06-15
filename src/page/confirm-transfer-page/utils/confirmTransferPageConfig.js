@@ -14,6 +14,10 @@ export const CONFIRM_TRANSFER_PAGE_LITERALS = {
   },
   transferSummary: {
     amountLabel: lang["confirm-transfer-page-amount-label"],
+    sourceAccountLabel: lang["confirm-transfer-page-source-account-label"],
+    beneficiaryLabel: lang["confirm-transfer-page-beneficiary-label"],
+    emptySourceAccountText: lang["confirm-transfer-page-empty-source-account"],
+    emptyBeneficiaryText: lang["confirm-transfer-page-empty-beneficiary"],
   },
 };
 
