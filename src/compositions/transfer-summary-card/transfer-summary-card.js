@@ -1,14 +1,14 @@
-import { html, LitElement, nothing } from "lit";
+import { html, LitElement } from "lit";
 import { styles } from "./transfer-summary-card.css.js";
-import "@components/type-text/type-text.js";
-import "@compositions/transfer-summary-list/transfer-summary-list.js";
+import "@/components/type-text/type-text.js";
+import "@/compositions/transfer-summary-list/transfer-summary-list.js";
 
 class TransferSummaryCard extends LitElement {
   static properties = {
     locale: {
       type: Object,
     },
-    current: { type: String },
+    currency: { type: String },
     amount: { type: String },
     transactionNumber: { type: String },
     time: { type: String },
@@ -17,14 +17,12 @@ class TransferSummaryCard extends LitElement {
     originAccountNumber: { type: String },
     beneficiaryName: { type: String },
     beneficiaryLastName: { type: String },
-    concept: { type: String },
-    status: { type: String },
   };
 
   constructor() {
     super();
     this.locale = {};
-    this.current = "";
+    this.currency = "";
     this.amount = "";
     this.transactionNumber = "";
     this.time = "";
@@ -33,7 +31,6 @@ class TransferSummaryCard extends LitElement {
     this.originAccountNumber = "";
     this.beneficiaryName = "";
     this.beneficiaryLastName = "";
-    this.concept = "";
     this.status = "";
   }
 
@@ -49,7 +46,7 @@ class TransferSummaryCard extends LitElement {
           ></type-text>
           <div class="amount-container">
             <type-text
-              .text=${this.current}
+              .text=${this.currency}
               .weight=${"bold"}
               size="l"
             ></type-text>
@@ -71,7 +68,6 @@ class TransferSummaryCard extends LitElement {
             .originAccountNumber=${this.originAccountNumber}
             .beneficiaryName=${this.beneficiaryName}
             .beneficiaryLastName=${this.beneficiaryLastName}
-            .concept=${this.concept}
             .status=${this.status}
             .isDataReady=${this.isDataReady}
           ></transfer-summary-list>

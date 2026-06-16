@@ -1,13 +1,18 @@
-export const SUCCESSFUL_TRANSFER_RESPONSE_MOCK = {
-  current: "$",
-  amount: "1,000.00",
-  transactionNumber: "TRX-987654321",
-  date: "2026-06-04",
-  time: "15:30:00",
-  originAccount: "Eyder Huayta",
-  originAccountNumber: "**** 2321",
-  beneficiaryName: "Alex Alberto",
-  beneficiaryLastName: "Smith López",
-  concept: "Pago de servicios mensuales",
-  status: "Completado",
+export const createSuccessfulTransferMock = (transferData) => {
+  const now = new Date();
+
+  const options = { day: 'numeric', month: 'long', year: 'numeric' };
+
+  return {
+    currency: transferData.sourceAccount.currency,
+    amount: transferData.sourceAccount.amount,
+    transactionNumber: `TRX-${Math.floor(100000000 + Math.random() * 900000000)}`,
+    date: now.toLocaleDateString('es-ES', options),
+    time: now.toTimeString().split(" ")[0],
+    originAccount: transferData.sourceAccount.accountName || "Cuenta Origen",
+    originAccountNumber: `**** ${transferData.sourceAccount.accountNumber.slice(-4)}`,
+    beneficiaryName: transferData.destinationAccount.firstName || "Beneficiario",
+    beneficiaryLastName: transferData.destinationAccount.lastName || "",
+    status: "Completado",
+  };
 };

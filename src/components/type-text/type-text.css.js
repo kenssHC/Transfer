@@ -1,11 +1,9 @@
 import { css } from "lit";
 
 export const styles = css`
-  :host {   
-  }
 
   * {
-    font-family: var(--font-family-base, "Roboto", sans-serif);
+    font-family: 'Roboto', sans-serif;
     display: block;
   }
 

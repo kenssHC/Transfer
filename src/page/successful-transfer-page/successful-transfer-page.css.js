@@ -9,8 +9,8 @@ export default css`
   }
 
   .modal-page-primary {
-  --type-modal-bg-color: var(--surface-page-primary-bg);
-  --type-modal-backdrop-color: var(--surface-page-primary-backdrop);
+    --type-modal-bg-color: var(--surface-page-primary-bg);
+    --type-modal-backdrop-color: var(--surface-page-primary-backdrop);
   }
 
   .header {
@@ -26,7 +26,7 @@ export default css`
     margin: 1rem;
   }
 
-  [slot="body"] {
+  .modal-body {
     width: 100%;
     height: 100%;
     overflow-y: scroll;

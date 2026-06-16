@@ -1,8 +1,9 @@
 // src/compositions/account-card/account-card.js
 import { html, LitElement } from "lit";
 import { styles } from "./account-card.css.js";
-import "@components/type-icon/type-icon.js";
-import "@components/type-text/type-text.js";
+import "@/components/type-icon/type-icon.js";
+import "@/components/type-text/type-text.js";
+import { fireEvent } from "@/utils/utils.js";
 
 export class AccountCard extends LitElement {
   /**
@@ -10,11 +11,46 @@ export class AccountCard extends LitElement {
    */
 
   static properties = {
+    /**
+     * The name of the account
+     * @type {String}
+     * @default ""
+     **/
     accountName: { type: String },
+
+    /**
+     * The number of the account
+     * @type {String}
+     * @default ""
+     */
     accountNumber: { type: String },
+
+    /**
+     * The type of the account
+     * @type {String}
+     * @default ""
+     */
     accountType: { type: String },
+
+    /**
+     * The type currency of the account
+     * @type {String}
+     * @default ""
+     */
     currency: { type: String },
+
+    /**
+     * The available balance of the account
+     * @type {Number}
+     * @default 0
+     */
     availableBalance: { type: Number },
+
+    /**
+     * The status of the account (e.g., active, inactive)
+     * @type {String}
+     * @default ""
+     */
     status: { type: String },
   };
 
@@ -38,20 +74,27 @@ export class AccountCard extends LitElement {
     return symbols[currency] || "";
   }
 
+  _formatAmount() {
+    return new Intl.NumberFormat("es-PE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(this.availableBalance);
+  }
+
   /**
    * Renders the account card content
    */
 
   _renderContent() {
     return html`
-      <div
+      <button
+        type="button"
         class="account-card"
-        role="button"
         tabindex="0"
+        aria-label=${`Cuenta ${this.accountName}, saldo ${this._formatCurrency()}${this._formatAmount()}`}
         @click=${() => this._onClick()}
-       @keydown=${(e) => this._onKeyDown(e)}
+        @keydown=${(e) => this._onKeyDown(e)}
       >
-
         <div class="account-left">
           <type-icon
             variant="secondary"
@@ -85,23 +128,24 @@ export class AccountCard extends LitElement {
           </div>
         </div>
 
-
-
         <div class="account-right">
-          <type-text
-            tag="p"
-            size="ml"
-            weight="bold"
-            .text=${`${this._formatCurrency()} ${this.availableBalance}`}
-          ></type-text>
+          <div class="balance">
+            <type-text
+              tag="p"
+              size="ml"
+              weight="bold"
+              .text=${`${this._formatCurrency()} ${this._formatAmount()}`}
+            ></type-text>
+          </div>
 
           <type-icon
             icon-name="arrow-right"
-            size="s"
+            size="m"
             variant="secondary"
           ></type-icon>
         </div>
-      </div>
+
+      </button>
     `;
   }
 
@@ -111,20 +155,16 @@ export class AccountCard extends LitElement {
    */
 
   _onClick() {
-    this.dispatchEvent(
-      new CustomEvent("account-selected", {
-        detail: {
-          accountName: this.accountName,
-          accountNumber: this.accountNumber,
-          accountType: this.accountType,
-          availableBalance: this.availableBalance,
-          currency: this.currency,
-          status: this.status,
-        },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    fireEvent(this, "account-selected", {
+      account: {
+        accountName: this.accountName,
+        accountNumber: this.accountNumber,
+        accountType: this.accountType,
+        availableBalance: this.availableBalance,
+        currency: this.currency,
+        status: this.status,
+      },
+    });
   }
 
   /**
